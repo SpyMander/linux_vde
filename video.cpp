@@ -103,8 +103,8 @@ AVObject::~AVObject() {
 void AVObject::printInfo() {
   // info that header has
   std::cout << pFormatContext->iformat->name << std::endl;
-  std::cout << "bitrate: "<< pFormatContext->bit_rate << std::endl;
   //prints streams num audio and video.
+  std::cout << "bitrate: "<< pFormatContext->bit_rate << std::endl;
   std::cout<<"stream amount: " << pFormatContext->nb_streams << std::endl;
 }
 

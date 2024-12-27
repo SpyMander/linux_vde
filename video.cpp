@@ -61,7 +61,9 @@ AVObject::AVObject (const char* filepath) {
   if (!pVCodecContext) {
     std::cerr << "cant make codec context, no space!" << std::endl;
   }
-  std::cout << "threading: " << pVCodecContext->thread_count << std::endl;
+
+  // setting threads of codec
+  //std::cout << "threading: " << pVCodecContext->thread_count << std::endl;
   //pVCodecContext->thread_count = 6; works but creates problems and shit.
   //pVCodecContext->thread_type = FF_THREAD_FRAME;
 

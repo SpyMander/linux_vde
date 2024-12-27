@@ -1,5 +1,5 @@
 extern "C" {
-#include <raylib.h>
+#include <SDL2/SDL.h>
 }
 #include "avlibs.hpp"
 #include "video.hpp"
@@ -10,91 +10,86 @@ extern "C" {
 const char* imagepath = "./agnee.jpg";
 const char* videopath = "./example.mkv";
 
-
-
-Texture* frameToTexture(AVFrame* frame) {
-
-    Image img = {
-      .data = frame->data[0],
-      .width = frame->width,
-      .height = frame->height,
-      .mipmaps = 1,
-      .format = PIXELFORMAT_UNCOMPRESSED_GRAYSCALE,
-      //PIXELFORMAT_UNCOMPRESSED_R8G8B8A8
-      //PIXELFORMAT_UNCOMPRESSED_GRAYSCALE
-    };
-    
-    //ImageResize(pImg, winx, winy);
-
-    int texturesize = sizeof(Texture) + frame->linesize[0] * frame->height;
-
-    //std::cout<<"tex alloc amount: " << texturesize << '\n';
-
-    // since the image is in the stack,
-    // raylib has a difficult time dealing with it.
-    // so there is a sigsev error. double free (stack and manual)
-
-    Texture* texture = (Texture*) malloc(texturesize);
-    texture[0] = LoadTextureFromImage(img);
-
-    // maybe instead of allocing a new texture everytime,
-    // it's possible to change the image->data?
-    return texture;
+int updateYUVFrameTexture(SDL_Texture* texture, AVFrame* frame) {
+  return SDL_UpdateYUVTexture(texture,
+			      NULL,
+			      frame->data[0], frame->linesize[0],
+			      frame->data[1], frame->linesize[1],
+			      frame->data[2], frame->linesize[2]);
 }
 
 int main() {
 
   const int winy = 1080;
   const int winx = 1920;
-
-  //AVFrame* frame = getVideoFrameRaw(videopath);
-  //AVFrame* frame = yuv420torgb8(YUVFrame);
-  //av_frame_free(&YUVFrame);
-  //std::cout << "frame format: " << frame->format << '\n';
-
-  SetTraceLogLevel(LOG_ERROR);
-  InitWindow(winx, winy, "Best Video Player");
-
-  SetTargetFPS(30);
-
-  int frame_offset = 0;
-
-  //for (int i = 0; i<770; i++) {
-  // AVObject *obj = new AVObject(videopath);
-  // if (i%10) {
-  //  std::cout << "rest--------------------------" << std::endl;
-  //  sleep(2);
-  //}
-  //delete obj;
-  //}
+  const int maxfps = 30;
 
   AVObject *obj = new AVObject(videopath);
 
-  int seek_value = 0;
-  
-  while (!WindowShouldClose()) {
-    if (!obj->seekTo(seek_value)) {
-      std::cerr << "couldn't seek (main)" << std::endl;
-    }
-    seek_value += 1;
-    
-    AVFrame* frame = obj->getCurrentFrame(); // DO NOT FREE. OBJ TAKES CARE
-    // we are only using y plane for now
+  //int seek_value = 699;
+  //if (!obj->seekTo(seek_value)) {
+  //  std::cerr << "couldn't seek (main)" << std::endl;
+  //}
 
-    Texture* texture = frameToTexture(frame);
+  AVFrame* frame = obj->getCurrentFrame(); // DO NOT FREE. OBJ TAKES CARE
 
-    BeginDrawing();
-    ClearBackground(BLUE);
-
-    DrawTexture(*texture, 0, 0, WHITE);
-    EndDrawing();
-
-    frame_offset += 1;
-
-    UnloadTexture(*texture);
-    free(texture);
+  // sdl stuff
+  if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
+    std::cerr << SDL_GetError();
   }
 
+  // the last argument is the flag, you can set it to be a vulkan or gl
+  // context, this is important.
+  SDL_Window* pWindow = SDL_CreateWindow("linux_vde", SDL_WINDOWPOS_CENTERED,
+					 SDL_WINDOWPOS_CENTERED, winx, winy,
+					 0);
+  
+  const Uint32 render_flags = SDL_RENDERER_ACCELERATED;
+
+  SDL_Renderer* pMainRenderer = SDL_CreateRenderer(pWindow, -1,
+						   render_flags);
+
+  // frame to renderable texure
+  // that sdl_textureaccess is sussy, streaming cuz it's not static.
+  SDL_Texture* frame_texture =
+    SDL_CreateTexture(pMainRenderer, SDL_PIXELFORMAT_YV12,
+		      SDL_TEXTUREACCESS_STREAMING, winx, winy);
+
+  updateYUVFrameTexture(frame_texture, frame);
+
+
+  bool running = true;
+  while(running) {
+    SDL_Event event;
+
+    while (SDL_PollEvent(&event)) { // goes through all events that happened
+	if (event.type == SDL_QUIT) {
+	  running = false;
+	}
+    }
+
+    if (!obj->iterateFrame(1) ) {
+      std::cerr<< "couldn't iter (main)"  << std::endl;
+    }
+
+    frame = obj->getCurrentFrame();
+    updateYUVFrameTexture(frame_texture, frame);
+
+    SDL_RenderClear(pMainRenderer);
+    // the two nulls are rectangels, source and dest.
+    SDL_RenderCopy(pMainRenderer, frame_texture, NULL, NULL);
+    SDL_RenderPresent(pMainRenderer); // double buffer.
+
+    // TODO: this causes problems, we cant just sleep, doesn't take into
+    // account the time it took to calculate all the stuff that happened.
+    // aka not consistent
+    SDL_Delay(1000/maxfps);
+  }
+
+  SDL_DestroyTexture(frame_texture);
+  SDL_DestroyRenderer(pMainRenderer);
+  SDL_DestroyWindow(pWindow);
+  SDL_Quit();
   delete obj;
 
   return 0;

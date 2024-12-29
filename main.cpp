@@ -27,11 +27,6 @@ int main() {
   const double maxfps = obj->getVideoFps();
   const double frame_time_msec = 1000/maxfps;
 
-  //int seek_value = 699;
-  //if (!obj->seekTo(seek_value)) {
-  //  std::cerr << "couldn't seek (main)" << std::endl;
-  //}
-
   AVFrame* frame = obj->getCurrentFrame(); // DO NOT FREE. OBJ TAKES CARE
 
   // sdl stuff
@@ -55,22 +50,40 @@ int main() {
 
 
   bool running = true;
+  uint calculation_msec_sum = 0;
+  uint loops = 0;
   while(running) {
     uint first_tick = SDL_GetTicks();
+    uint iter = 1;
     SDL_Event event;
 
     while (SDL_PollEvent(&event)) { // goes through all events that happened
 	if (event.type == SDL_EVENT_QUIT) {
 	  running = false;
 	}
+	if (event.key.scancode == SDL_SCANCODE_RIGHT) {
+	  uint seek_amount = obj->getCurrentFrameNumber() +
+		(int)obj->getVideoFps()*5;
+	  obj->seekTo(seek_amount);
+	  std::cout << "right: " << seek_amount << std::endl;
+	  iter = 0;
+	}
+	if (event.key.scancode == SDL_SCANCODE_LEFT) {
+          uint seek_amount = obj->getCurrentFrameNumber() -
+	  (int)obj->getVideoFps()*5;
+	  obj->seekTo(seek_amount);
+	  std::cout << "left: " << seek_amount << std::endl;
+	  iter = 0;
+	}
     }
 
-    if (!obj->iterateFrame(1) ) {
+    if (!obj->iterateFrame(iter) ) {
       std::cerr<< "couldn't iter (main)"  << std::endl;
     }
-
-    frame = obj->getCurrentFrame();
-    updateYUVFrameTexture(frame_texture, frame);
+    if (iter != 0) {
+      frame = obj->getCurrentFrame();
+      updateYUVFrameTexture(frame_texture, frame);
+    }
 
     SDL_RenderClear(pMainRenderer);
     // the two nulls are rectangels, source and dest.
@@ -80,6 +93,9 @@ int main() {
     uint last_tick = SDL_GetTicks();
     uint delta_tick = last_tick - first_tick;
 
+    loops+=1;
+    calculation_msec_sum += delta_tick;
+
     if (delta_tick < frame_time_msec) {
       SDL_Delay(frame_time_msec - delta_tick);
     }
@@ -88,7 +104,11 @@ int main() {
       std::cout << "dropped frame (delta):" << delta_tick
 	      << " frame_time_msec: " << frame_time_msec <<std::endl;
     }
+
   }
+
+  double calculation_avg = calculation_msec_sum/ (double)loops;
+  std::cout << calculation_avg << std::endl;
 
   SDL_DestroyTexture(frame_texture);
   SDL_DestroyRenderer(pMainRenderer);

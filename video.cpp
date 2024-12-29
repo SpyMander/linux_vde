@@ -184,7 +184,8 @@ bool AVObject::seekTo(uint frame) {
   // TODO: when locating exactly on a keyframe it misses it by 1 frame. fix
   AVRational timebase = pFormatContext->streams[videoStreamIndex]
     ->time_base;
-  int64_t ts = (int64_t)((frame/fps)*timebase.den/timebase.num);
+  // frame minus 1 to compensate for iterateFrame(1);
+  int64_t ts = (int64_t) ( ((frame-2)/fps) * timebase.den/timebase.num);
   int flag = AVSEEK_FLAG_BACKWARD;
 
   int seek_ret = av_seek_frame(pFormatContext, videoStreamIndex,
@@ -199,21 +200,26 @@ bool AVObject::seekTo(uint frame) {
   iterateFrame(1); // to get frame number
 
   uint after_seek_frame = getCurrentFrameNumber();
+  std::cout << "after seek and iter: " << after_seek_frame << std::endl;
 
-  if (after_seek_frame >= frame) {
-    std::cout << "on keyframe or worse" << std::endl;
-    return true;
-  }
   uint delta = frame - after_seek_frame;
   // since after_seek_frame is behind the requested frame. 
   std::cout << "seeked (delta):" << delta << std::endl;
   
-  if (delta == 0) {
+  if (frame == after_seek_frame) {
+    std::cout << "seeked on I frame!" << std::endl;
+    return true;
+  }
+
+  if (after_seek_frame == 0) {
+    // for some reason, it will be off by 1 if not done like this.
+    iterateFrame(delta-1);
     return true;
   }
 
   iterateFrame(delta);
 
+  std::cout << "after all: " << getCurrentFrameNumber() << std::endl;
   return true;
 }
 

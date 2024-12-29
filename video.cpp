@@ -185,7 +185,7 @@ bool AVObject::seekTo(uint frame) {
   AVRational timebase = pFormatContext->streams[videoStreamIndex]
     ->time_base;
   // frame minus 1 to compensate for iterateFrame(1);
-  int64_t ts = (int64_t) ( ((frame-2)/fps) * timebase.den/timebase.num);
+  int64_t ts = (int64_t) ( ((frame-1)/fps) * timebase.den/timebase.num);
   int flag = AVSEEK_FLAG_BACKWARD;
 
   int seek_ret = av_seek_frame(pFormatContext, videoStreamIndex,

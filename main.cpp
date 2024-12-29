@@ -22,9 +22,10 @@ int main() {
 
   const int winy = 1080;
   const int winx = 1920;
-  const int maxfps = 30;
 
   AVObject *obj = new AVObject(videopath);
+  const double maxfps = obj->getVideoFps();
+  const double frame_time_msec = 1000/maxfps;
 
   //int seek_value = 699;
   //if (!obj->seekTo(seek_value)) {
@@ -55,6 +56,7 @@ int main() {
 
   bool running = true;
   while(running) {
+    uint first_tick = SDL_GetTicks();
     SDL_Event event;
 
     while (SDL_PollEvent(&event)) { // goes through all events that happened
@@ -75,10 +77,17 @@ int main() {
     SDL_RenderTexture(pMainRenderer, frame_texture, NULL, NULL);
     SDL_RenderPresent(pMainRenderer); // double buffer.
 
-    // TODO: this causes problems, we cant just sleep, doesn't take into
-    // account the time it took to calculate all the stuff that happened.
-    // aka not consistent
-    SDL_Delay(1000/maxfps);
+    uint last_tick = SDL_GetTicks();
+    uint delta_tick = last_tick - first_tick;
+
+    if (delta_tick < frame_time_msec) {
+      SDL_Delay(frame_time_msec - delta_tick);
+    }
+    
+    else {
+      std::cout << "dropped frame (delta):" << delta_tick
+	      << " frame_time_msec: " << frame_time_msec <<std::endl;
+    }
   }
 
   SDL_DestroyTexture(frame_texture);

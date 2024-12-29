@@ -260,3 +260,6 @@ uint AVObject::ptsToFrameNumber(long pts) {
   return current_frame_pos;
 }
 
+double AVObject::getVideoFps() {
+  return fps;
+}

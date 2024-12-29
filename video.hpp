@@ -11,6 +11,7 @@ public:
   uint getCurrentFrameNumber();
   long frameNumberToPts(uint frame);
   uint ptsToFrameNumber(long pts);
+  double getVideoFps();
   //bool setFrame(int64_t frame_number);
 private:
   AVFormatContext* pFormatContext;
